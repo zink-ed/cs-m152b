@@ -27,9 +27,10 @@ endmodule
 
 
 module alu(
-    input A,
-    input B,
-    output S
+    input [15:0] A, B,
+    input [3:0] SEL,
+    output [15:0] S,
+    output ADD_OVERFLOW
     );
     
     wire [15:0] SUB_RESULT;
@@ -42,35 +43,42 @@ module alu(
     wire [15:0] AND_RESULT;
     wire [15:0] LSL_RESULT;
     wire [15:0] LSR_RESULT;
+    wire [15:0] INV_RESULT;
     
-    wire COUT;
+    wire ADD_COUT, SUB_COUT;
+    wire [15:0] ZEROESS = 16'b0;
+
+     inv16 inv(
+        .a(A),
+        .y(INV_RESULT)
+    );
     
     sub16 sub(
         .a(A),
         .b(B),
         .y(SUB_RESULT),
-        .cout(COUT)
+        .cout(SUB_COUT)
     );
     
     add16 add(
         .a(A),
         .b(B),
         .y(ADD_RESULT),
-        .cout(COUT)
+        .cout(ADD_COUT)
     );
     
     sub16 dec(
         .a(A),
-        .b(1'b1),
+        .b(16'b1),
         .y(DEC_RESULT),
-        .cout(COUT)
+        .cout()
     );
     
     add16 inc(
         .a(A),
-        .b(1'b1),
-        .y(DEC_RESULT),
-        .cout(COUT)
+        .b(16'b1),
+        .y(INC_RESULT),
+        .cout()
     );
     
     asl16 asl(
@@ -89,7 +97,7 @@ module alu(
         .y(OR_RESULT)
     );
     
-    and16 and16(
+    and16 and16_inst(
         .a(A),
         .b(B),
         .y(AND_RESULT)
@@ -106,7 +114,28 @@ module alu(
     );
     
     
-    // ZERO FLAG
+    
+
+    mux16to1_16bit alu_mux(
+        .in0(SUB_RESULT), // 0000
+        .in1(ADD_RESULT), // 0001
+        .in2(OR_RESULT),  // 0010
+        .in3(AND_RESULT), // 0011
+        .in4(DEC_RESULT), // 0100
+        .in5(INC_RESULT), // 0101
+        .in6(INV_RESULT), // 0110
+        .in7(ZEROESS),           // 0111
+        .in8(LSL_RESULT),           // 1000
+        .in9(ZEROESS),           // 1001
+        .in10(LSR_RESULT),          // 1010
+        .in11(ZEROESS),          // 1011
+        .in12(ASL_RESULT), // 1100
+        .in13(ZEROESS), // 1101
+        .in14(ASR_RESULT),          // 1110
+        .in15(ZEROESS),           // 1111
+        .sel(SEL),
+        .out(S)
+    );
     
     
     
@@ -115,7 +144,7 @@ module alu(
     wire same_sign;
     wire sign_change;
     xnor (same_sign, A[15], B[15]);
-    xor (sign_change, A[15], ADD_RESULT);
+    xor (sign_change, A[15], ADD_RESULT[15]);
     and (ADD_OVERFLOW, same_sign, sign_change);
     
     
@@ -156,9 +185,8 @@ module add16(
     assign cout = c[16];
     
     genvar i;
-    
     generate 
-        for (i = 0; i < 16; i = i + 1) begin
+        for (i = 0; i < 16; i = i + 1) begin : adder_loop
             adder ad (
                 .a(a[i]), 
                 .b(b[i]), 
@@ -179,19 +207,18 @@ module sub16(
     output cout
     );
     
-    wire [15:0] binv;
+    wire [15:0] b_tc;
     
     genvar i;
-    
     tci16 tci (
-        .b(binv),  
-        .s(y)
+        .a(b),  
+        .y(b_tc)
     ); 
             
     add16 add (
-        .a(a[i]),
-        .b(binv[i]),  
-        .s(y[i]),
+        .a(a),
+        .b(b_tc),  
+        .y(y),
         .cout(cout)
     );
     
@@ -217,7 +244,7 @@ endmodule
 
 
 // 16-bit ARITHMETIC SHIFT RIGHT
-module inc16(
+module asr16(
     input [15:0] a,
     output [15:0] y
     );
@@ -240,24 +267,22 @@ module tci16(
     output [15:0] y
     );
     
-    wire [15:0] temp;
+    wire [15:0] inv_a;
     wire cout;
     
     genvar i;
-    
     generate 
-        for (i = 0; i < 16; i = i + 1) begin
-            not (a[i], temp[i]);
+        for (i = 0; i < 16; i = i + 1) begin : inv_loop
+            not (inv_a[i], a[i]);
         end
     endgenerate
     
-    adder16 ad16 (
-        .a(a[i]), 
+    add16 ad16 (
+        .a(inv_a), 
         .b(16'b1), 
-        .s(y[i]),
+        .s(y),
         .cout(cout)
     );
-    
 endmodule
 
 // 16-bit AND
@@ -270,7 +295,7 @@ module and16(
     genvar i;
     
     generate 
-        for (i = 0; i < 16; i = i + 1) begin
+        for (i = 0; i < 16; i = i + 1) begin : and_loop
             and (y[i], a[i], b[i]);
         end
     endgenerate
@@ -330,3 +355,70 @@ module lsr16(
     
 endmodule   
 
+// MUX
+
+module mux16to1_16bit(
+    input [15:0] in0, input [15:0] in1, input [15:0] in2, input [15:0] in3,
+    input [15:0] in4, input [15:0] in5, input [15:0] in6, input [15:0] in7,
+    input [15:0] in8, input [15:0] in9, input [15:0] in10, input [15:0] in11,
+    input [15:0] in12, input [15:0] in13, input [15:0] in14, input [15:0] in15,
+    input [3:0] sel,
+    output [15:0] out
+);
+
+wire [15:0] s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7;
+
+wire [15:0] s2_0, s2_1, s2_2, s2_3;
+
+wire [15:0] s3_0, s3_1;
+
+mux2to1_16bit m1_0 (.a(in0), .b(in1), .sel(sel[0]), .out(s1_0));
+mux2to1_16bit m1_1 (.a(in2), .b(in3), .sel(sel[0]), .out(s1_1));
+mux2to1_16bit m1_2 (.a(in4), .b(in5), .sel(sel[0]), .out(s1_2));
+mux2to1_16bit m1_3 (.a(in6), .b(in7), .sel(sel[0]), .out(s1_3));
+mux2to1_16bit m1_4 (.a(in8), .b(in9), .sel(sel[0]), .out(s1_4));
+mux2to1_16bit m1_5 (.a(in10), .b(in11), .sel(sel[0]), .out(s1_5));
+mux2to1_16bit m1_6 (.a(in12), .b(in13), .sel(sel[0]), .out(s1_6));
+mux2to1_16bit m1_7 (.a(in14), .b(in15), .sel(sel[0]), .out(s1_7));
+
+mux2to1_16bit m2_0 (.a(s1_0), .b(s1_1), .sel(sel[1]), .out(s2_0));
+mux2to1_16bit m2_1 (.a(s1_2), .b(s1_3), .sel(sel[1]), .out(s2_1));
+mux2to1_16bit m2_2 (.a(s1_4), .b(s1_5), .sel(sel[1]), .out(s2_2));
+mux2to1_16bit m2_3 (.a(s1_6), .b(s1_7), .sel(sel[1]), .out(s2_3));
+
+mux2to1_16bit m3_0(.a(s2_0), .b(s2_1), .sel(sel[2]), .out(s3_0));
+mux2to1_16bit m3_1(.a(s2_2), .b(s2_3), .sel(sel[2]), .out(s3_1));
+
+mux2to1_16bit m4_0(.a(s3_0), .b(s3_1), .sel(sel[3]), .out(out));
+
+endmodule
+
+module mux2to1_16bit(
+    input [15:0] a,
+    input [15:0] b,
+    input sel,
+    output[15:0] out
+);
+
+wire [15:0] sel_mask;
+wire [15:0] sel_n_mask;
+
+// replication operator allowed ?
+assign sel_mask = {16{sel}};
+assign sel_n_mask = ~sel_mask;
+
+assign out = (a & sel_n_mask) | (b & sel_mask);
+
+endmodule
+
+module inv16(
+    input [15:0] a,
+    output [15:0] y
+);
+    genvar i;
+    generate 
+        for (i = 0; i < 16; i = i + 1) begin : inv_loop
+            not (y[i], a[i]);
+        end
+    endgenerate
+endmodule
