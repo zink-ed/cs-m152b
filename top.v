@@ -28,9 +28,9 @@ endmodule
 
 module alu(
     input [15:0] A, B,
-    input [3:0] SEL,
+    input [3:0] ALUCtrl,
     output [15:0] S,
-    output ADD_OVERFLOW,
+    output overflow,
     output zero
     );
     
@@ -38,35 +38,36 @@ module alu(
     wire [15:0] ADD_RESULT;
     wire [15:0] DEC_RESULT;
     wire [15:0] INC_RESULT;
+    wire [15:0] TCI_RESULT;
     wire [15:0] ASL_RESULT;
     wire [15:0] ASR_RESULT;
     wire [15:0] OR_RESULT;
     wire [15:0] AND_RESULT;
     wire [15:0] LSL_RESULT;
     wire [15:0] LSR_RESULT;
-    wire [15:0] INV_RESULT;
     wire [15:0] SLE_RESULT;
     
     wire ADD_COUT, SUB_COUT;
     wire [15:0] ZEROESS = 16'b0;
-
-    inv16 inv(
-        .a(A),
-        .y(INV_RESULT)
-    );
+    
+    wire ADD_OVERFLOW;
+    wire SUB_OVERFLOW;
+    wire TCI_OVERFLOW;
     
     sub16 sub(
         .a(A),
         .b(B),
         .y(SUB_RESULT),
-        .cout(SUB_COUT)
+        .cout(SUB_COUT),
+        .overflow(SUB_OVERFLOW)
     );
     
     add16 add(
         .a(A),
         .b(B),
         .y(ADD_RESULT),
-        .cout(ADD_COUT)
+        .cout(ADD_COUT),
+        .overflow(ADD_OVERFLOW)
     );
     
     sub16 dec(
@@ -81,6 +82,12 @@ module alu(
         .b(16'b1),
         .y(INC_RESULT),
         .cout()
+    );
+    
+    tci16 tci(
+        .a(A),
+        .y(TCI_RESULT),
+        .overflow(TCI_OVERFLOW)
     );
     
     asl16 asl(
@@ -128,36 +135,44 @@ module alu(
         .in3(AND_RESULT), // 0011
         .in4(DEC_RESULT), // 0100
         .in5(INC_RESULT), // 0101
-        .in6(INV_RESULT), // 0110
+        .in6(TCI_RESULT), // 0110
         .in7(ZEROESS),    // 0111
         .in8(LSL_RESULT), // 1000
-        .in9(SLE_RESULT),    // 1001
+        .in9(SLE_RESULT), // 1001
         .in10(LSR_RESULT),// 1010
         .in11(ZEROESS),   // 1011
         .in12(ASL_RESULT),// 1100
         .in13(ZEROESS),   // 1101
         .in14(ASR_RESULT),// 1110
         .in15(ZEROESS),   // 1111
-        .sel(SEL),
+        .sel(ALUCtrl),
         .out(S)
     );
     
     // ZERO
-    wire not_zero;
-    wire [15:0] eq;
-    
-    genvar i;
-    generate 
-        for (i = 0; i < 16; i = i + 1) begin
-            or (eq[i], S[i], 1'b0);
-            or (not_zero, not_zero, eq[i]);
-        end
-    endgenerate
-    
-    not(zero, not_zero);
+    nor (zero, S[15:0]);
 
     // OVERFLOW
-    
+    mux16to1_16bit overflow_mux(
+        .in0(SUB_OVERFLOW),  // 0000
+        .in1(ADD_OVERFLOW),  // 0001
+        .in2(ZEROESS),  // 0010
+        .in3(ZEROESS),  // 0011
+        .in4(ZEROESS),  // 0100
+        .in5(ZEROESS),  // 0101
+        .in6(TCI_OVERFLOW),  // 0110
+        .in7(ZEROESS),  // 0111
+        .in8(ZEROESS),  // 1000
+        .in9(ZEROESS),  // 1001
+        .in10(ZEROESS), // 1010
+        .in11(ZEROESS), // 1011
+        .in12(ZEROESS), // 1100
+        .in13(ZEROESS), // 1101
+        .in14(ZEROESS), // 1110
+        .in15(ZEROESS), // 1111
+        .sel(ALUCtrl),
+        .out(S)
+    );
     
 endmodule
 
@@ -250,18 +265,60 @@ endmodule
 // 16-bit ARITHMETIC SHIFT LEFT
 module asl16(
     input [15:0] a,
+    input [15:0] b,
     output [15:0] y
     );
     
-    assign y[0] = 1'b0;
+    wire [15:0] s0, s1, s2, s3;
+    wire [15:0] s4, s5, s6, s7;
+    wire [15:0] s8, s9, s10, s11;
+    wire [15:0] s12, s13, s14, s15;
+
+    assign s0  = a;
+    assign s1  = {a[14:0], 1'b0};
+    assign s2  = {a[13:0], 2'b00};
+    assign s3  = {a[12:0], 3'b000};
+    assign s4  = {a[11:0], 4'b0000};
+    assign s5  = {a[10:0], 5'b0};
+    assign s6  = {a[9:0], 6'b0};
+    assign s7  = {a[8:0], 7'b0};
+    assign s8  = {a[7:0], 8'b0};
+    assign s9  = {a[6:0], 9'b0};
+    assign s10 = {a[5:0], 10'b0};
+    assign s11 = {a[4:0], 11'b0};
+    assign s12 = {a[3:0], 12'b0};
+    assign s13 = {a[2:0], 13'b0};
+    assign s14 = {a[1:0], 14'b0};
+    assign s15 = {a[0], 15'b0};
     
-    genvar i;
+    wire over16;
+    or (over16, b[15:4]);
     
-    generate 
-        for (i = 1; i < 16; i = i + 1) begin
-            assign y[i] = a[i-1];
-        end
-    endgenerate
+    
+    
+    mux16to1_16bit overflow_mux(
+        .in0(s0),  // 0000
+        .in1(s1),  // 0001
+        .in2(s2),  // 0010
+        .in3(s3),  // 0011
+        .in4(s4),  // 0100
+        .in5(s5),  // 0101
+        .in6(s6),  // 0110
+        .in7(s7),  // 0111
+        .in8(s8),  // 1000
+        .in9(s9),  // 1001
+        .in10(s10), // 1010
+        .in11(s11), // 1011
+        .in12(s12), // 1100
+        .in13(s13), // 1101
+        .in14(s14), // 1110
+        .in15(s15), // 1111
+        .sel(ALUCtrl),
+        .out(S)
+    );
+    
+    // overflow
+    
     
 endmodule
 
@@ -287,18 +344,17 @@ endmodule
 // 16-bit TWO'S COMPLIMENT INVERT
 module tci16(
     input [15:0] a,
-    output [15:0] y
+    output [15:0] y,
+    output overflow
     );
     
     wire [15:0] inv_a;
     wire cout;
     
-    genvar i;
-    generate 
-        for (i = 0; i < 16; i = i + 1) begin : inv_loop
-            not (inv_a[i], a[i]);
-        end
-    endgenerate
+    inv16 inv (
+        .a(a),
+        .y(inv_a)
+    );
     
     add16 ad16 (
         .a(inv_a), 
@@ -306,6 +362,11 @@ module tci16(
         .s(y),
         .cout(cout)
     );
+    
+    wire lower_zero;
+    nor (lower_zero, a[14:0]);
+    and (overflow, a[15], lower_zero);
+    
 endmodule
 
 // 16-bit AND
@@ -428,8 +489,6 @@ module sle16(
     endgenerate
     
 endmodule  
- 
-
 
 // MUX
 module mux16to1_16bit(
