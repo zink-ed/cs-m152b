@@ -9,7 +9,8 @@
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
-// Description: 
+// Description: 16-bit ALU with variable bit shift (A shifted by B) using 
+//              structural Verilog and Multiplexer control modules.
 // 
 // Dependencies: 
 // 
@@ -92,11 +93,13 @@ module alu(
     
     asl16 asl(
         .a(A),
+        .b(B),
         .y(ASL_RESULT)
     );
     
     asr16 asr(
         .a(A),
+        .b(B),
         .y(ASR_RESULT)
     );
     
@@ -114,11 +117,13 @@ module alu(
     
     lsl16 lsl(
         .a(A),
+        .b(B),
         .y(LSL_RESULT)
     );
     
     lsr16 lsr(
         .a(A),
+        .b(B),
         .y(LSR_RESULT)
     );
     
@@ -150,17 +155,19 @@ module alu(
     );
     
     // ZERO
-    nor (zero, S[15:0]);
+    nor (zero, S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7], S[8], S[9], S[10], S[11], S[12], S[13], S[14], S[15]);
 
     // OVERFLOW
+    wire [15:0] overflow_bus;
+    
     mux16to1_16bit overflow_mux(
-        .in0(SUB_OVERFLOW),  // 0000
-        .in1(ADD_OVERFLOW),  // 0001
+        .in0({15'b0, SUB_OVERFLOW}), // 0000
+        .in1({15'b0, ADD_OVERFLOW}), // 0001
         .in2(ZEROESS),  // 0010
         .in3(ZEROESS),  // 0011
         .in4(ZEROESS),  // 0100
         .in5(ZEROESS),  // 0101
-        .in6(TCI_OVERFLOW),  // 0110
+        .in6({15'b0, TCI_OVERFLOW}), // 0110
         .in7(ZEROESS),  // 0111
         .in8(ZEROESS),  // 1000
         .in9(ZEROESS),  // 1001
@@ -171,8 +178,10 @@ module alu(
         .in14(ZEROESS), // 1110
         .in15(ZEROESS), // 1111
         .sel(ALUCtrl),
-        .out(S)
+        .out(overflow_bus)
     );
+    
+    assign overflow = overflow_bus[0];
     
 endmodule
 
@@ -246,11 +255,11 @@ module sub16(
     
     wire [15:0] b_tc;
     
-    genvar i;
     tci16 tci (
         .a(b),  
-        .y(b_tc)
-    ); 
+        .y(b_tc),
+        .overflow()
+    );  
             
     add16 add (
         .a(a),
@@ -262,7 +271,7 @@ module sub16(
     
 endmodule
 
-// 16-bit ARITHMETIC SHIFT LEFT
+// 16-bit ARITHMETIC SHIFT LEFT (Shift A left by B)
 module asl16(
     input [15:0] a,
     input [15:0] b,
@@ -279,69 +288,97 @@ module asl16(
     assign s2  = {a[13:0], 2'b00};
     assign s3  = {a[12:0], 3'b000};
     assign s4  = {a[11:0], 4'b0000};
-    assign s5  = {a[10:0], 5'b0};
-    assign s6  = {a[9:0], 6'b0};
-    assign s7  = {a[8:0], 7'b0};
-    assign s8  = {a[7:0], 8'b0};
-    assign s9  = {a[6:0], 9'b0};
-    assign s10 = {a[5:0], 10'b0};
-    assign s11 = {a[4:0], 11'b0};
-    assign s12 = {a[3:0], 12'b0};
-    assign s13 = {a[2:0], 13'b0};
-    assign s14 = {a[1:0], 14'b0};
-    assign s15 = {a[0], 15'b0};
+    assign s5  = {a[10:0], 5'b0000_0};
+    assign s6  = {a[9:0],  6'b0000_00};
+    assign s7  = {a[8:0],  7'b0000_000};
+    assign s8  = {a[7:0],  8'b0000_0000};
+    assign s9  = {a[6:0],  9'b0000_0000_0};
+    assign s10 = {a[5:0],  10'b0000_0000_00};
+    assign s11 = {a[4:0],  11'b0000_0000_000};
+    assign s12 = {a[3:0],  12'b0000_0000_0000};
+    assign s13 = {a[2:0],  13'b0000_0000_0000_0};
+    assign s14 = {a[1:0],  14'b0000_0000_0000_00};
+    assign s15 = {a[0],    15'b0000_0000_0000_000};
     
-    wire over16;
-    or (over16, b[15:4]);
+    wire [15:0] mux_out;
     
-    
-    
-    mux16to1_16bit overflow_mux(
-        .in0(s0),  // 0000
-        .in1(s1),  // 0001
-        .in2(s2),  // 0010
-        .in3(s3),  // 0011
-        .in4(s4),  // 0100
-        .in5(s5),  // 0101
-        .in6(s6),  // 0110
-        .in7(s7),  // 0111
-        .in8(s8),  // 1000
-        .in9(s9),  // 1001
-        .in10(s10), // 1010
-        .in11(s11), // 1011
-        .in12(s12), // 1100
-        .in13(s13), // 1101
-        .in14(s14), // 1110
-        .in15(s15), // 1111
-        .sel(ALUCtrl),
-        .out(S)
+    mux16to1_16bit shift_mux(
+        .in0(s0),   .in1(s1),   .in2(s2),   .in3(s3),
+        .in4(s4),   .in5(s5),   .in6(s6),   .in7(s7),
+        .in8(s8),   .in9(s9),   .in10(s10), .in11(s11),
+        .in12(s12), .in13(s13), .in14(s14), .in15(s15),
+        .sel(b[3:0]),
+        .out(mux_out)
     );
     
-    // overflow
+    wire over16;
+    or (over16, b[15], b[14], b[13], b[12], b[11], b[10], b[9], b[8], b[7], b[6], b[5], b[4]);
     
+    mux2to1_16bit over_mux(
+        .a(mux_out),
+        .b(16'b0),
+        .sel(over16),
+        .out(y)
+    );
     
 endmodule
 
 
-// 16-bit ARITHMETIC SHIFT RIGHT
+// 16-bit ARITHMETIC SHIFT RIGHT (Shift A right by B with sign extension)
 module asr16(
     input [15:0] a,
+    input [15:0] b,
     output [15:0] y
     );
     
-    assign y[15] = a[15];
+    wire [15:0] s0, s1, s2, s3;
+    wire [15:0] s4, s5, s6, s7;
+    wire [15:0] s8, s9, s10, s11;
+    wire [15:0] s12, s13, s14, s15;
+
+    assign s0  = a;
+    assign s1  = {{1{a[15]}}, a[15:1]};
+    assign s2  = {{2{a[15]}}, a[15:2]};
+    assign s3  = {{3{a[15]}}, a[15:3]};
+    assign s4  = {{4{a[15]}}, a[15:4]};
+    assign s5  = {{5{a[15]}}, a[15:5]};
+    assign s6  = {{6{a[15]}}, a[15:6]};
+    assign s7  = {{7{a[15]}}, a[15:7]};
+    assign s8  = {{8{a[15]}}, a[15:8]};
+    assign s9  = {{9{a[15]}}, a[15:9]};
+    assign s10 = {{10{a[15]}}, a[15:10]};
+    assign s11 = {{11{a[15]}}, a[15:11]};
+    assign s12 = {{12{a[15]}}, a[15:12]};
+    assign s13 = {{13{a[15]}}, a[15:13]};
+    assign s14 = {{14{a[15]}}, a[15:14]};
+    assign s15 = {{15{a[15]}}, a[15]};
     
-    genvar i;
+    wire [15:0] mux_out;
     
-    generate 
-        for (i = 0; i < 15; i = i + 1) begin
-            assign y[i] = a[i+1];
-        end
-    endgenerate
+    mux16to1_16bit shift_mux(
+        .in0(s0),   .in1(s1),   .in2(s2),   .in3(s3),
+        .in4(s4),   .in5(s5),   .in6(s6),   .in7(s7),
+        .in8(s8),   .in9(s9),   .in10(s10), .in11(s11),
+        .in12(s12), .in13(s13), .in14(s14), .in15(s15),
+        .sel(b[3:0]),
+        .out(mux_out)
+    );
+    
+    wire over16;
+    or (over16, b[15], b[14], b[13], b[12], b[11], b[10], b[9], b[8], b[7], b[6], b[5], b[4]);
+    
+    wire [15:0] sign_fill = {16{a[15]}};
+    
+    mux2to1_16bit over_mux(
+        .a(mux_out),
+        .b(sign_fill),
+        .sel(over16),
+        .out(y)
+    );
 
 endmodule  
 
-// 16-bit TWO'S COMPLIMENT INVERT
+// 16-bit TWO'S COMPLEMENT INVERT
 module tci16(
     input [15:0] a,
     output [15:0] y,
@@ -359,12 +396,13 @@ module tci16(
     add16 ad16 (
         .a(inv_a), 
         .b(16'b1), 
-        .s(y),
-        .cout(cout)
+        .y(y),
+        .cout(cout),
+        .overflow()
     );
     
     wire lower_zero;
-    nor (lower_zero, a[14:0]);
+    nor (lower_zero, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14]);
     and (overflow, a[15], lower_zero);
     
 endmodule
@@ -396,46 +434,114 @@ module or16(
     genvar i;
     
     generate 
-        for (i = 0; i < 16; i = i + 1) begin
+        for (i = 0; i < 16; i = i + 1) begin : or_loop
             or (y[i], a[i], b[i]);
         end
     endgenerate
     
 endmodule
 
-// 16-bit LOGICAL SHIFT LEFT
+// 16-bit LOGICAL SHIFT LEFT (Shift A left by B)
 module lsl16(
     input [15:0] a,
+    input [15:0] b,
     output [15:0] y
     );
     
-    assign y[0] = 1'b0;
+    wire [15:0] s0, s1, s2, s3;
+    wire [15:0] s4, s5, s6, s7;
+    wire [15:0] s8, s9, s10, s11;
+    wire [15:0] s12, s13, s14, s15;
+
+    assign s0  = a;
+    assign s1  = {a[14:0], 1'b0};
+    assign s2  = {a[13:0], 2'b00};
+    assign s3  = {a[12:0], 3'b000};
+    assign s4  = {a[11:0], 4'b0000};
+    assign s5  = {a[10:0], 5'b0000_0};
+    assign s6  = {a[9:0],  6'b0000_00};
+    assign s7  = {a[8:0],  7'b0000_000};
+    assign s8  = {a[7:0],  8'b0000_0000};
+    assign s9  = {a[6:0],  9'b0000_0000_0};
+    assign s10 = {a[5:0],  10'b0000_0000_00};
+    assign s11 = {a[4:0],  11'b0000_0000_000};
+    assign s12 = {a[3:0],  12'b0000_0000_0000};
+    assign s13 = {a[2:0],  13'b0000_0000_0000_0};
+    assign s14 = {a[1:0],  14'b0000_0000_0000_00};
+    assign s15 = {a[0],    15'b0000_0000_0000_000};
     
-    genvar i;
+    wire [15:0] mux_out;
     
-    generate 
-        for (i = 1; i < 16; i = i + 1) begin
-            assign y[i] = a[i-1];
-        end
-    endgenerate
+    mux16to1_16bit shift_mux(
+        .in0(s0),   .in1(s1),   .in2(s2),   .in3(s3),
+        .in4(s4),   .in5(s5),   .in6(s6),   .in7(s7),
+        .in8(s8),   .in9(s9),   .in10(s10), .in11(s11),
+        .in12(s12), .in13(s13), .in14(s14), .in15(s15),
+        .sel(b[3:0]),
+        .out(mux_out)
+    );
+    
+    wire over16;
+    or (over16, b[15], b[14], b[13], b[12], b[11], b[10], b[9], b[8], b[7], b[6], b[5], b[4]);
+    
+    mux2to1_16bit over_mux(
+        .a(mux_out),
+        .b(16'b0),
+        .sel(over16),
+        .out(y)
+    );
     
 endmodule
 
-// 16-bit LOGICAL SHIFT RIGHT
+// 16-bit LOGICAL SHIFT RIGHT (Shift A right by B with zero extension)
 module lsr16(
     input [15:0] a,
+    input [15:0] b,
     output [15:0] y
     );
     
-    assign y[15] = 1'b0;
+    wire [15:0] s0, s1, s2, s3;
+    wire [15:0] s4, s5, s6, s7;
+    wire [15:0] s8, s9, s10, s11;
+    wire [15:0] s12, s13, s14, s15;
+
+    assign s0  = a;
+    assign s1  = {1'b0, a[15:1]};
+    assign s2  = {2'b00, a[15:2]};
+    assign s3  = {3'b000, a[15:3]};
+    assign s4  = {4'b0000, a[15:4]};
+    assign s5  = {5'b0000_0, a[15:5]};
+    assign s6  = {6'b0000_00, a[15:6]};
+    assign s7  = {7'b0000_000, a[15:7]};
+    assign s8  = {8'b0000_0000, a[15:8]};
+    assign s9  = {9'b0000_0000_0, a[15:9]};
+    assign s10 = {10'b0000_0000_00, a[15:10]};
+    assign s11 = {11'b0000_0000_000, a[15:11]};
+    assign s12 = {12'b0000_0000_0000, a[15:12]};
+    assign s13 = {13'b0000_0000_0000_0, a[15:13]};
+    assign s14 = {14'b0000_0000_0000_00, a[15:14]};
+    assign s15 = {15'b0000_0000_0000_000, a[15]};
     
-    genvar i;
+    wire [15:0] mux_out;
     
-    generate 
-        for (i = 0; i < 15; i = i + 1) begin
-            assign y[i] = a[i+1];
-        end
-    endgenerate
+    mux16to1_16bit shift_mux(
+        .in0(s0),   .in1(s1),   .in2(s2),   .in3(s3),
+        .in4(s4),   .in5(s5),   .in6(s6),   .in7(s7),
+        .in8(s8),   .in9(s9),   .in10(s10), .in11(s11),
+        .in12(s12), .in13(s13), .in14(s14), .in15(s15),
+        .sel(b[3:0]),
+        .out(mux_out)
+    );
+    
+    wire over16;
+    or (over16, b[15], b[14], b[13], b[12], b[11], b[10], b[9], b[8], b[7], b[6], b[5], b[4]);
+    
+    mux2to1_16bit over_mux(
+        .a(mux_out),
+        .b(16'b0),
+        .sel(over16),
+        .out(y)
+    );
     
 endmodule  
 
@@ -443,7 +549,7 @@ endmodule
 module sle16(
     input [15:0] a,
     input [15:0] b,
-    output[15:0] res
+    output [15:0] res
     );
     
     wire [15:0] sub_res;
@@ -469,6 +575,8 @@ module sle16(
     wire a_lt_b;
     wire a_eq_b;
     
+    nor (a_eq_b, sub_res[0], sub_res[1], sub_res[2], sub_res[3], sub_res[4], sub_res[5], sub_res[6], sub_res[7], sub_res[8], sub_res[9], sub_res[10], sub_res[11], sub_res[12], sub_res[13], sub_res[14], sub_res[15]);
+    
     not (not_b, b[15]);
     and (neg_lt_pos, a[15], not_b); // if A neg, B pos
     
@@ -483,7 +591,7 @@ module sle16(
     
     genvar i;
     generate 
-        for (i = 1; i < 16; i = i + 1) begin
+        for (i = 1; i < 16; i = i + 1) begin : sle_fill
             assign res[i] = res[0];
         end
     endgenerate
@@ -501,16 +609,14 @@ module mux16to1_16bit(
 );
 
     wire [15:0] s1_0, s1_1, s1_2, s1_3, s1_4, s1_5, s1_6, s1_7;
-    
     wire [15:0] s2_0, s2_1, s2_2, s2_3;
-    
     wire [15:0] s3_0, s3_1;
     
-    mux2to1_16bit m1_0 (.a(in0), .b(in1), .sel(sel[0]), .out(s1_0));
-    mux2to1_16bit m1_1 (.a(in2), .b(in3), .sel(sel[0]), .out(s1_1));
-    mux2to1_16bit m1_2 (.a(in4), .b(in5), .sel(sel[0]), .out(s1_2));
-    mux2to1_16bit m1_3 (.a(in6), .b(in7), .sel(sel[0]), .out(s1_3));
-    mux2to1_16bit m1_4 (.a(in8), .b(in9), .sel(sel[0]), .out(s1_4));
+    mux2to1_16bit m1_0 (.a(in0),  .b(in1),  .sel(sel[0]), .out(s1_0));
+    mux2to1_16bit m1_1 (.a(in2),  .b(in3),  .sel(sel[0]), .out(s1_1));
+    mux2to1_16bit m1_2 (.a(in4),  .b(in5),  .sel(sel[0]), .out(s1_2));
+    mux2to1_16bit m1_3 (.a(in6),  .b(in7),  .sel(sel[0]), .out(s1_3));
+    mux2to1_16bit m1_4 (.a(in8),  .b(in9),  .sel(sel[0]), .out(s1_4));
     mux2to1_16bit m1_5 (.a(in10), .b(in11), .sel(sel[0]), .out(s1_5));
     mux2to1_16bit m1_6 (.a(in12), .b(in13), .sel(sel[0]), .out(s1_6));
     mux2to1_16bit m1_7 (.a(in14), .b(in15), .sel(sel[0]), .out(s1_7));
@@ -520,10 +626,10 @@ module mux16to1_16bit(
     mux2to1_16bit m2_2 (.a(s1_4), .b(s1_5), .sel(sel[1]), .out(s2_2));
     mux2to1_16bit m2_3 (.a(s1_6), .b(s1_7), .sel(sel[1]), .out(s2_3));
     
-    mux2to1_16bit m3_0(.a(s2_0), .b(s2_1), .sel(sel[2]), .out(s3_0));
-    mux2to1_16bit m3_1(.a(s2_2), .b(s2_3), .sel(sel[2]), .out(s3_1));
+    mux2to1_16bit m3_0 (.a(s2_0), .b(s2_1), .sel(sel[2]), .out(s3_0));
+    mux2to1_16bit m3_1 (.a(s2_2), .b(s2_3), .sel(sel[2]), .out(s3_1));
     
-    mux2to1_16bit m4_0(.a(s3_0), .b(s3_1), .sel(sel[3]), .out(out));
+    mux2to1_16bit m4_0 (.a(s3_0), .b(s3_1), .sel(sel[3]), .out(out));
 
 endmodule
 
@@ -531,7 +637,7 @@ module mux2to1_16bit(
     input [15:0] a,
     input [15:0] b,
     input sel,
-    output[15:0] out
+    output [15:0] out
 );
 
     wire [15:0] sel_mask;
@@ -539,7 +645,7 @@ module mux2to1_16bit(
     
     genvar i;
     generate 
-        for (i = 0; i < 16; i = i + 1) begin
+        for (i = 0; i < 16; i = i + 1) begin : mask_gen
             assign sel_mask[i] = sel;
         end
     endgenerate
@@ -549,12 +655,12 @@ module mux2to1_16bit(
         .y(sel_n_mask)
     );
     
-    wire a_and_sel;
-    wire b_and_sel;
+    wire [15:0] a_and_sel;
+    wire [15:0] b_and_sel;
     
-    and (a_and_sel, a, sel_n_mask);
-    and (b_and_sel, b, sel_mask);
-    or (out, a_and_sel, b_and_sel);
+    and16 and_a (.a(a), .b(sel_n_mask), .y(a_and_sel));
+    and16 and_b (.a(b), .b(sel_mask),   .y(b_and_sel));
+    or16  or_out (.a(a_and_sel), .b(b_and_sel), .y(out));
 
 endmodule
 
