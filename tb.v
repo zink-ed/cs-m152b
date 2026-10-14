@@ -84,42 +84,73 @@ module tb;
         $display("==================================");
     
         // 0000: SUBTRACTION
-        check_alu(4'b0000, 16'h000A, 16'h0003, 16'h0007, 1'b0, 1'b0); 
-        check_alu(4'b0000, 16'h8000, 16'h0001, 16'h7FFF, 1'b1, 1'b0);
-        check_alu(4'b0000, 16'h0005, 16'h0005, 16'h0000, 1'b0, 1'b1);
-        check_alu(4'b0000, 16'h0003, 16'h000A, 16'hFFF9, 1'b0, 1'b0);
+        check_alu(4'b0000, 16'h000A, 16'h0003, 16'h0007, 1'b0, 1'b0); // 10-3 = 7 
+        check_alu(4'b0000, 16'h0005, 16'h0005, 16'h0000, 1'b0, 1'b1); // 5-5 = 0
+        check_alu(4'b0000, 16'h0003, 16'h000A, 16'hFFF9, 1'b0, 1'b0); // 3-10 = -7
+        check_alu(4'b0000, 16'h0000, 16'h0001, 16'hFFFF, 1'b0, 1'b0); // 0-1 = -1
+        check_alu(4'b0000, 16'h8000, 16'hFFFF, 16'h8001, 1'b0, 1'b0); // MIN - (-1)
+        check_alu(4'b0000, 16'h8000, 16'h8000, 16'h0000, 1'b0, 1'b1); // MIN - MIN
+        
+        check_alu(4'b0000, 16'h8000, 16'h0001, 16'h7FFF, 1'b1, 1'b0); // MIN - 1
+        check_alu(4'b0000, 16'h8000, 16'h0006, 16'h7FFA, 1'b1, 1'b0); // MIN - 6
+        check_alu(4'b0000, 16'h7FFF, 16'hFFFF, 16'h8000, 1'b1, 1'b0); // MAX - (-1)
+        check_alu(4'b0000, 16'h7FFF, 16'hFFFA, 16'h8000, 1'b1, 1'b0); // MAX - (-6)
+        check_alu(4'b0000, 16'h7FFF, 16'h8000, 16'hFFFF, 1'b1, 1'b0); // MAX - MIN 
     
         // 0001: ADDITION
         check_alu(4'b0001, 16'h000A, 16'h0005, 16'h000F, 1'b0, 1'b0);
-        check_alu(4'b0001, 16'h7FFF, 16'h0001, 16'h8000, 1'b1, 1'b0);
         check_alu(4'b0001, 16'hFFFF, 16'h0001, 16'h0000, 1'b0, 1'b1);
-        check_alu(4'b0001, 16'h8000, 16'h8000, 16'h0000, 1'b1, 1'b1);
+        check_alu(4'b0001, 16'h8000, 16'h7FFF, 16'hFFFF, 1'b0, 1'b0); // MIN + MAX
+        check_alu(4'b0001, 16'h0000, 16'h8000, 16'h8000, 1'b0, 1'b0); // 0 + MIN
+        check_alu(4'b0001, 16'hFFFF, 16'h0000, 16'hFFFF, 1'b0, 1'b0); // -1 + 0
+                
+        check_alu(4'b0001, 16'h7FFF, 16'h0001, 16'h8000, 1'b1, 1'b0); // MAX + 1
+        check_alu(4'b0001, 16'h8000, 16'h8000, 16'h0000, 1'b1, 1'b1); // MIN + MIN
+        check_alu(4'b0001, 16'h7FFF, 16'h7FFF, 16'hFFFE, 1'b1, 1'b0); // MAX + MAX
     
         // 0010: OR
         check_alu(4'b0010, 16'h00F0, 16'h0F00, 16'h0FF0, 1'b0, 1'b0);
         check_alu(4'b0010, 16'hAAAA, 16'h5555, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b0010, 16'h0000, 16'h0000, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b0010, 16'h8000, 16'h0000, 16'h8000, 1'b0, 1'b0);
+        check_alu(4'b0010, 16'hF0F0, 16'h0F0F, 16'hFFFF, 1'b0, 1'b0);
         check_alu(4'b0010, 16'h0000, 16'h0000, 16'h0000, 1'b0, 1'b1);
     
         // 0011: AND
         check_alu(4'b0011, 16'h00F0, 16'h0FF0, 16'h00F0, 1'b0, 1'b0);
         check_alu(4'b0011, 16'hF000, 16'h0FFF, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b0011, 16'hAAAA, 16'h5555, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b0011, 16'hFFFF, 16'hFFFF, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b0011, 16'h8000, 16'h8000, 16'h8000, 1'b0, 1'b0);
+        check_alu(4'b0011, 16'hFFFF, 16'h0000, 16'h0000, 1'b0, 1'b1);
     
         // 0100: DECREMENT
         check_alu(4'b0100, 16'h000A, 16'h007B, 16'h0009, 1'b0, 1'b0);
-        check_alu(4'b0100, 16'h8000, 16'h0001, 16'h7FFF, 1'b1, 1'b0);
         check_alu(4'b0100, 16'h0000, 16'h0000, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b0100, 16'h8001, 16'hFFFF, 16'h8000, 1'b0, 1'b0);
+        check_alu(4'b0100, 16'h7FFF, 16'h8000, 16'h7FFE, 1'b0, 1'b0);
+        check_alu(4'b0100, 16'h0001, 16'hFFFF, 16'h0000, 1'b0, 1'b1);
+        
+        check_alu(4'b0100, 16'h8000, 16'h0001, 16'h7FFF, 1'b1, 1'b0);
     
         // 0101: INCREMENT
         check_alu(4'b0101, 16'h000A, 16'h007B, 16'h000B, 1'b0, 1'b0);
-        check_alu(4'b0101, 16'h7FFF, 16'h0000, 16'h8000, 1'b1, 1'b0);
         check_alu(4'b0101, 16'hFFFF, 16'h0000, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b0101, 16'h8000, 16'hFFFF, 16'h8001, 1'b0, 1'b0);
+        check_alu(4'b0101, 16'hFFFE, 16'h7FFF, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b0101, 16'h0000, 16'hFFFF, 16'h0001, 1'b0, 1'b0);
+        
+        check_alu(4'b0101, 16'h7FFF, 16'h0000, 16'h8000, 1'b1, 1'b0);
     
         // 0110: TWO'S-COMPLEMENT INVERT
         check_alu(4'b0110, 16'h0005, 16'h007B, 16'hFFFB, 1'b0, 1'b0);
-        check_alu(4'b0110, 16'h8000, 16'h0000, 16'h8000, 1'b1, 1'b0);
         check_alu(4'b0110, 16'h0000, 16'h0000, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b0110, 16'hFFFF, 16'h1234, 16'h0001, 1'b0, 1'b0);
+        check_alu(4'b0110, 16'h0001, 16'hFFFF, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b0110, 16'h7FFF, 16'h8000, 16'h8001, 1'b0, 1'b0);
+        check_alu(4'b0110, 16'h0000, 16'hFFFF, 16'h0000, 1'b0, 1'b1);
+        
+        check_alu(4'b0110, 16'h8000, 16'h0000, 16'h8000, 1'b1, 1'b0); // inverting INT-MIN
     
         // 0111: RESERVED
         check_alu(4'b0111, 16'd1, 16'd2,
@@ -130,6 +161,9 @@ module tb;
         check_alu(4'b1000, 16'h8001, 16'h0001, 16'h0002, 1'b0, 1'b0);
         check_alu(4'b1000, 16'h1234, 16'h0010, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b1000, 16'h0001, 16'h0000, 16'h0001, 1'b0, 1'b0);
+        check_alu(4'b1000, 16'h0001, 16'h000F, 16'h8000, 1'b0, 1'b0);
+        check_alu(4'b1000, 16'hFFFF, 16'h0001, 16'hFFFE, 1'b0, 1'b0);
+        check_alu(4'b1000, 16'h8000, 16'h000F, 16'h0000, 1'b0, 1'b1);
     
         // 1001: SIGNED SET LESS THAN OR EQUAL
         check_alu(4'b1001, 16'h0005, 16'h0005, 16'h0001, 1'b0, 1'b0);
@@ -137,12 +171,18 @@ module tb;
         check_alu(4'b1001, 16'h0005, 16'h0003, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b1001, 16'h8000, 16'h7FFF, 16'h0001, 1'b0, 1'b0);
         check_alu(4'b1001, 16'h7FFF, 16'h8000, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b1001, 16'h8000, 16'hFFFF, 16'h0001, 1'b0, 1'b0); // MIN <= -1
+        check_alu(4'b1001, 16'hFFFF, 16'h8000, 16'h0000, 1'b0, 1'b1); // -1 <= MIN is false
+        check_alu(4'b1001, 16'h7FFF, 16'h7FFF, 16'h0001, 1'b0, 1'b0); // Equal maximum
     
         // 1010: LOGICAL SHIFT RIGHT
         check_alu(4'b1010, 16'h8000, 16'h0001, 16'h4000, 1'b0, 1'b0);
         check_alu(4'b1010, 16'h8001, 16'h0004, 16'h0800, 1'b0, 1'b0);
         check_alu(4'b1010, 16'h1234, 16'h0010, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b1010, 16'hFFFF, 16'h0000, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b1010, 16'h0001, 16'h0001, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b1010, 16'hFFFF, 16'h000F, 16'h0001, 1'b0, 1'b0);
+        check_alu(4'b1010, 16'h8000, 16'h0010, 16'h0000, 1'b0, 1'b1);
     
         // 1011: RESERVED
         check_alu(4'b1011, 16'd1, 16'd2,
@@ -150,9 +190,15 @@ module tb;
     
         // 1100: ARITHMETIC SHIFT LEFT
         check_alu(4'b1100, 16'h1000, 16'h0001, 16'h2000, 1'b0, 1'b0);
+        check_alu(4'b1100, 16'h0000, 16'h000F, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b1100, 16'h1234, 16'h0010, 16'h0000, 1'b0, 1'b1);
+        
         check_alu(4'b1100, 16'h4000, 16'h0001, 16'h8000, 1'b1, 1'b0);
         check_alu(4'b1100, 16'h8000, 16'h0001, 16'h0000, 1'b1, 1'b1);
-        check_alu(4'b1100, 16'h1234, 16'h0010, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b1100, 16'h7FFF, 16'h0001, 16'hFFFE, 1'b1, 1'b0);
+        check_alu(4'b1100, 16'h0001, 16'h000F, 16'h8000, 1'b1, 1'b0);
+        check_alu(4'b1100, 16'h8000, 16'h000F, 16'h0000, 1'b1, 1'b1);
+        
     
         // 1101: RESERVED
         check_alu(4'b1101, 16'd1, 16'd2,
@@ -163,6 +209,10 @@ module tb;
         check_alu(4'b1110, 16'h0001, 16'h0001, 16'h0000, 1'b0, 1'b1);
         check_alu(4'b1110, 16'h8000, 16'h0010, 16'hFFFF, 1'b0, 1'b0);
         check_alu(4'b1110, 16'h7FFF, 16'h0004, 16'h07FF, 1'b0, 1'b0);
+        check_alu(4'b1110, 16'hFFFF, 16'h000F, 16'hFFFF, 1'b0, 1'b0);
+        check_alu(4'b1110, 16'h7FFF, 16'h0001, 16'h3FFF, 1'b0, 1'b0);
+        check_alu(4'b1110, 16'h7FFF, 16'h000F, 16'h0000, 1'b0, 1'b1);
+        check_alu(4'b1110, 16'h8001, 16'h0001, 16'hC000, 1'b0, 1'b0);
     
         // 1111: RESERVED
         check_alu(4'b1111, 16'd1, 16'd2,
