@@ -94,7 +94,7 @@ module tb;
         check_alu(4'b0000, 16'h8000, 16'h0001, 16'h7FFF, 1'b1, 1'b0); // MIN - 1
         check_alu(4'b0000, 16'h8000, 16'h0006, 16'h7FFA, 1'b1, 1'b0); // MIN - 6
         check_alu(4'b0000, 16'h7FFF, 16'hFFFF, 16'h8000, 1'b1, 1'b0); // MAX - (-1)
-        check_alu(4'b0000, 16'h7FFF, 16'hFFFA, 16'h8000, 1'b1, 1'b0); // MAX - (-6)
+        check_alu(4'b0000, 16'h7FFF, 16'hFFFA, 16'h8005, 1'b1, 1'b0); // MAX - (-6)
         check_alu(4'b0000, 16'h7FFF, 16'h8000, 16'hFFFF, 1'b1, 1'b0); // MAX - MIN 
     
         // 0001: ADDITION
