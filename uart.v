@@ -21,8 +21,58 @@
 
 
 module uart(
-
+    input  wire clk,        
+    input  wire btnC, // reset       
+    input  wire btnU, // send button
+    input  wire [7:0] sw,   
+    input  wire RX, // UART RX GPIO
+    output wire TX, // UART TX GPIO
+    output wire [7:0] led        
     );
+    
+    reg  [7:0] tx_data;
+    wire [7:0] rx_data;
+    
+    reg send_d;
+    wire send_pulse;
+
+    always @(posedge clk or posedge btnC) begin
+        if (btnC)
+            send_d <= 1'b0;
+        else
+            send_d <= btnU;
+    end
+
+    // trigger once on the rising edge of the button
+    assign send_pulse = btnU & ~send_d;
+
+    // capture switch data when the send button is pressed
+    always @(posedge clk or posedge btnC) begin
+        if (btnC)
+            tx_data <= 8'h00;
+        else if (send_pulse)
+            tx_data <= sw;
+    end
+
+    // UART receiver
+    rx receiver (
+        .clk(clk),
+        .rst(btnC),
+        .rx_line(RX),
+        .data(rx_data)
+    );
+
+    // UART transmitter
+    tx transmitter (
+        .clk(clk),
+        .rst(btnC),
+        .start(send_pulse),
+        .data(sw),
+        .tx_line(TX)
+    );
+    
+    assign led = rx_data;
+    
 endmodule
 
 module rx(
@@ -118,6 +168,7 @@ endmodule
 module tx(
     input wire clk,
     input wire rst,
+    input wire start,
     input wire [7:0] data,
     output wire tx_line
 );
@@ -144,13 +195,17 @@ module tx(
             state <= TX_IDLE;
             data_bit <= 0;
             tx_reg <= 1'b1;
+            clk_count <= 0;
         end else begin
             case (state) 
                 TX_IDLE: begin
                     tx_reg <= 1'b1;
-                    tx_data <= data;
                     clk_count <= 0;
-                    state <= TX_START;
+                    
+                    if (start) begin
+                        tx_data <= data;
+                        state <= TX_START;
+                    end
                 end
                 TX_START: begin
                     // hold start bit low
@@ -159,7 +214,7 @@ module tx(
                     if (clk_count == FULL - 1) begin
                         clk_count <= 0;
                         data_bit <= 0;
-                        tx_reg <= tx_data[data_bit];
+                        tx_reg <= tx_data[0];
                         state <= TX_DATA;
                     end else begin
                         clk_count <= clk_count + 1'b1;
@@ -175,7 +230,7 @@ module tx(
                             state <= TX_STOP;
                         end else begin
                             data_bit <= data_bit + 1'b1;
-                            tx_reg <= tx_data[data_bit];
+                            tx_reg <= tx_data[data_bit + 1'b1];
                         end
                     end else begin
                         clk_count <= clk_count + 1'b1;
