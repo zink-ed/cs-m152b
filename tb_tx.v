@@ -22,7 +22,7 @@
 
 module tb_tx;
 
-    localparam integer FULL = 1_000_000 / 9_600;
+    localparam integer FULL = 100_000_000 / 9_600;
     localparam integer HALF = FULL / 2;
     
     reg clk;
@@ -168,7 +168,7 @@ module tb_tx;
     
     // Simulation watchdog
     initial begin
-        #20000000;
+        #12000000;
         $display("ERROR: TX simulation timeout");
         $finish;
     end
