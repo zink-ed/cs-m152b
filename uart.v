@@ -82,7 +82,7 @@ module rx(
     output reg [7:0] data
 );
     
-    localparam integer FULL = 1_000_000 / 9_600;
+    localparam integer FULL = 100_000_000 / 9_600;
     localparam integer HALF = FULL / 2;
 
     localparam [2:0]
@@ -102,6 +102,7 @@ module rx(
             data_bit <= 0;
             clk_count <= 0;
             data <= 0;
+            temp_data <= 0;
         end else begin
             case (state) 
                 RX_IDLE: begin
@@ -173,7 +174,7 @@ module tx(
     output wire tx_line
 );
 
-    localparam integer FULL = 1_000_000 / 9_600;
+    localparam integer FULL = 100_000_000 / 9_600;
     localparam integer HALF = FULL / 2;
 
     localparam [2:0]
