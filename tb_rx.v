@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 10/26/2026 11:00:53 AM
+// Create Date: 10/28/2026 10:11:39 AM
 // Design Name: 
-// Module Name: rx_tb
+// Module Name: tb_rx
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -19,9 +19,10 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+
 module tb_rx;
 
-    localparam integer FULL = 1_000_000 / 9_600;
+    localparam integer FULL = 100_000_000 / 9_600;
     localparam integer HALF = FULL / 2;
 
     reg clk;
@@ -172,9 +173,10 @@ module tb_rx;
 
     // Simulation watchdog
     initial begin
-        #20000000;
+        #12000000;
         $display("ERROR: RX simulation timeout");
         $finish;
     end
 
 endmodule
+
