@@ -1,0 +1,112 @@
+/*
+ * main.c
+ *
+ *  Created on: Nov 4, 2026
+ *      Author: Student
+ */
+
+//AXI GPIO driver
+#include "xgpio.h"
+
+//send data over UART
+#include "xil_printf.h"
+
+//information about AXI peripherals
+#include "xparameters.h"
+
+#include "xuartlite.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define BUFFER_SIZE 50
+
+int main()
+{
+	XGpio gpio;
+
+	XUartLite uart;
+
+	char buffer[BUFFER_SIZE];
+	char *delimiter;
+
+	int index = 0;
+	int received;
+	int num1, num2;
+	int product;
+
+	u32 led;
+
+	XGpio_Initialize(&gpio, 0);
+
+	XGpio_SetDataDirection(&gpio, 2, 0x00000000); // set LED GPIO channel tristates to All Output
+
+	XUartLite_Initialize(&uart, XPAR_UARTLITE_0_DEVICE_ID);
+
+	xil_printf("\r\nMicroBlaze Multiplication System\r\n");
+	xil_printf("Enter two numbers separated by '/'\r\n");
+	xil_printf("Example: 8/6\r\n");
+
+	while (1)
+	{
+		received = XUartLite_Recv(&uart, (u8 *)&buffer[index], 1);
+
+		if (received == 1)
+		{
+			char c = buffer[index];
+
+			// check for enter key
+			if (c == '\r' || c == '\n')
+			{
+				buffer[index] = '\0';
+
+				// find delimiter
+				delimiter = strchr(buffer, '/');
+
+				if (delimiter != NULL)
+				{
+					*delimiter = '\0';
+
+					num1 = atoi(buffer);
+					num2 = atoi(delimiter + 1);
+
+					product = num1 * num2;
+					xil_printf("\nProduct: %d\r\n", product);
+
+					if (product > 100)
+						led = 0xFFFFFFFF;
+					else
+						led = 0x00000000;
+
+					XGpio_DiscreteWrite(&gpio, 2, led);
+				}
+				else
+				{
+					xil_printf("Invalid input! Use number/number\r\n");
+				}
+
+				index = 0;
+
+				xil_printf("Enter next calculation: ");
+			}
+			else
+			{
+				// store received character
+				if (index < BUFFER_SIZE - 1)
+				{
+					buffer[index] = c;
+					index++;
+				}
+				else
+				{
+					// buffer full: reset
+					index = 0;
+					xil_printf("\r\nInput too long!\r\n");
+				}
+			}
+		}
+	}
+	return 0;
+}
