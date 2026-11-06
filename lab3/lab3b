@@ -1,0 +1,192 @@
+/*
+ * main.c
+ *
+ *  Created on: Nov 4, 2026
+ *      Author: Student
+ */
+
+#include "xgpio.h"
+#include "xil_printf.h"
+#include "xparameters.h"
+#include "xuartlite.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define BUFFER_SIZE 50
+
+#define ROCK 1
+#define PAPER 2
+#define SCISSORS 3
+
+const char *moves[] = {
+    "",
+    "rock",
+    "paper",
+    "scissors"
+};
+
+// get player 2 input from keypad
+int GetKeypadMove(XGpio *gpio)
+{
+    u32 input;
+    int col;
+
+//    while (1)
+//    {
+//        for (col = 0; col < 3; col++)
+//        {
+//        	// first set all columns HIGH
+//        	XGpio_DiscreteWrite(gpio, 1, 0x0F);
+//
+//            // activate one column at a time
+//            XGpio_DiscreteWrite(gpio, 1, ~(1 << col) & 0x0F);
+//
+//            // small delay
+//            for (volatile int d = 0; d < 1000; d++);
+//
+//            // read key
+//            input = XGpio_DiscreteRead(gpio, 1);
+//
+//            // check ROW1 (bit 7)
+//            if ((input & 0x80) == 0)
+//			{
+//				return col + 1;
+//			}
+//        }
+//    }
+
+    while (1)
+    {
+        u32 input = XGpio_DiscreteRead(&gpio, 1);
+
+        xil_printf("GPIO: %02X\r\n", input);
+
+        for (volatile int d = 0; d < 1000000; d++);
+    }
+}
+
+// read player 1 input from UART
+int GetUARTMove(XUartLite *uart)
+{
+    char c;
+    int received;
+
+    while (1)
+    {
+        received = XUartLite_Recv(uart, (u8 *)&c, 1);
+
+        if (received == 1)
+        {
+            if (c >= '1' && c <= '3')
+            {
+                xil_printf("%c\r\n", c);
+                return c - '0';
+            }
+            else if (c == '\r' || c == '\n')
+            {
+                continue;
+            }
+            else
+            {
+                xil_printf("\r\nInvalid input! Enter 1, 2, or 3: ");
+            }
+        }
+    }
+}
+
+// determine winner
+void DetermineWinner(int player1, int player2)
+{
+    xil_printf("\r\n--------------------------------\r\n");
+
+    xil_printf("PC selected: %s\r\n", moves[player1]);
+    xil_printf("FPGA selected: %s\r\n", moves[player2]);
+
+    if (player1 == player2)
+    {
+        xil_printf("It's a tie! %s = %s\r\n",
+                   moves[player1], moves[player2]);
+    }
+    else if ((player2 == ROCK && player1 == SCISSORS) ||
+             (player2 == PAPER && player1 == ROCK) ||
+             (player2 == SCISSORS && player1 == PAPER))
+    {
+        xil_printf("FPGA won! %s > %s\r\n",
+                   moves[player2], moves[player1]);
+    }
+    else
+    {
+        xil_printf("PC won! %s > %s\r\n",
+                   moves[player1], moves[player2]);
+    }
+
+    xil_printf("--------------------------------\r\n");
+}
+
+
+int main()
+{
+    XGpio gpio;
+    XUartLite uart;
+
+    int player1;
+    int player2;
+
+    // initialize GPIO
+    XGpio_Initialize(&gpio, 0);
+
+    // Initialize UART
+    XUartLite_Initialize(&uart, XPAR_UARTLITE_0_DEVICE_ID);
+
+    // lower four bits = columns
+    // upper four bits = rows
+    XGpio_SetDataDirection(&gpio, 1, 0xF0);
+
+    xil_printf("\r\n");
+    xil_printf("================================\r\n");
+    xil_printf("    ROCK PAPER SCISSORS GAME    \r\n");
+    xil_printf("================================\r\n");
+
+    xil_printf("1 = Rock\r\n");
+    xil_printf("2 = Paper\r\n");
+    xil_printf("3 = Scissors\r\n");
+
+//    while (1)
+//    {
+//        xil_printf("\r\n========== NEW ROUND ==========\r\n");
+//
+//        // Player 1: PC Terminal
+//        xil_printf("\r\nPC Player - Enter your move (1-3): ");
+//
+//        player1 = GetUARTMove(&uart);
+//
+//        // Player 2: Keypad
+//        xil_printf("\r\nFPGA Player - Enter your move "
+//                   "using the keypad (1-3): ");
+//
+//        player2 = GetKeypadMove(&gpio);
+//
+//        xil_printf("%d\r\n", player2);
+//
+//        // determine winner
+//        DetermineWinner(player1, player2);
+//    }
+
+    while (1)
+    {
+        u32 input = XGpio_DiscreteRead(&gpio, 1);
+
+        xil_printf("ROW1: %d ROW2: %d ROW3: %d ROW4: %d\r\n",
+            (input >> 7) & 1,
+            (input >> 6) & 1,
+            (input >> 5) & 1,
+            (input >> 4) & 1);
+
+        for (volatile int d = 0; d < 1000000; d++);
+    }
+
+    return 0;
+}
