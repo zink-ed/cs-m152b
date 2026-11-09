@@ -5,17 +5,15 @@
  *      Author: Student
  */
 
-#include "xgpio.h"
 #include "xil_printf.h"
 #include "xparameters.h"
 #include "xuartlite.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 
-#define BUFFER_SIZE 50
+#include "PmodKYPD.h"
+#include "sleep.h"
 
 #define ROCK 1
 #define PAPER 2
@@ -28,44 +26,51 @@ const char *moves[] = {
     "scissors"
 };
 
+#define DEFAULT_KEYTABLE "0FED789C456B123A"
+
 // get player 2 input from keypad
-int GetKeypadMove(XGpio *gpio)
+int GetKeypadMove(PmodKYPD *keypad)
 {
-    u32 input;
-    int col;
+	u16 keystate;
+	XStatus status;
+	u8 key;
 
-//    while (1)
-//    {
-//        for (col = 0; col < 3; col++)
-//        {
-//        	// first set all columns HIGH
-//        	XGpio_DiscreteWrite(gpio, 1, 0x0F);
-//
-//            // activate one column at a time
-//            XGpio_DiscreteWrite(gpio, 1, ~(1 << col) & 0x0F);
-//
-//            // small delay
-//            for (volatile int d = 0; d < 1000; d++);
-//
-//            // read key
-//            input = XGpio_DiscreteRead(gpio, 1);
-//
-//            // check ROW1 (bit 7)
-//            if ((input & 0x80) == 0)
-//			{
-//				return col + 1;
-//			}
-//        }
-//    }
+	XStatus last_status = KYPD_NO_KEY;
+	u8 last_key = 'x';
 
-    while (1)
-    {
-        u32 input = XGpio_DiscreteRead(&gpio, 1);
+	while (1)
+	{
+		// capture keypad state
+		keystate = KYPD_getKeyStates(keypad);
 
-        xil_printf("GPIO: %02X\r\n", input);
+		// determine which key is pressed
+		status = KYPD_getKeyPressed(keypad, keystate, &key);
 
-        for (volatile int d = 0; d < 1000000; d++);
-    }
+		// check for a newly pressed key
+		if (status == KYPD_SINGLE_KEY &&
+			(status != last_status || key != last_key))
+		{
+			// only accept keys 1, 2, and 3
+			if (key >= '1' && key <= '3')
+			{
+				xil_printf("%c\r\n", (char)key);
+
+				return key - '0';
+			}
+			else
+			{
+				xil_printf("\r\nInvalid key! Press 1, 2, or 3.\r\n");
+			}
+
+			last_key = key;
+		}
+
+		last_status = status;
+
+		// small delay between scans
+		usleep(1000);
+	}
+
 }
 
 // read player 1 input from UART
@@ -129,21 +134,21 @@ void DetermineWinner(int player1, int player2)
 
 int main()
 {
-    XGpio gpio;
+	PmodKYPD myDevice;
     XUartLite uart;
 
     int player1;
     int player2;
 
-    // initialize GPIO
-    XGpio_Initialize(&gpio, 0);
+    // initialize keypad
+    KYPD_begin(&myDevice, XPAR_PMODKYPD_0_AXI_LITE_GPIO_BASEADDR);
+    KYPD_loadKeyTable(&myDevice, (u8*) DEFAULT_KEYTABLE);
 
-    // Initialize UART
+    // initialize keypad GPIO
+    Xil_Out32(myDevice.GPIO_addr, 0xF);
+
+    // initialize UART
     XUartLite_Initialize(&uart, XPAR_UARTLITE_0_DEVICE_ID);
-
-    // lower four bits = columns
-    // upper four bits = rows
-    XGpio_SetDataDirection(&gpio, 1, 0xF0);
 
     xil_printf("\r\n");
     xil_printf("================================\r\n");
@@ -154,39 +159,27 @@ int main()
     xil_printf("2 = Paper\r\n");
     xil_printf("3 = Scissors\r\n");
 
-//    while (1)
-//    {
-//        xil_printf("\r\n========== NEW ROUND ==========\r\n");
-//
-//        // Player 1: PC Terminal
-//        xil_printf("\r\nPC Player - Enter your move (1-3): ");
-//
-//        player1 = GetUARTMove(&uart);
-//
-//        // Player 2: Keypad
-//        xil_printf("\r\nFPGA Player - Enter your move "
-//                   "using the keypad (1-3): ");
-//
-//        player2 = GetKeypadMove(&gpio);
-//
-//        xil_printf("%d\r\n", player2);
-//
-//        // determine winner
-//        DetermineWinner(player1, player2);
-//    }
-
     while (1)
     {
-        u32 input = XGpio_DiscreteRead(&gpio, 1);
+        xil_printf("\r\n========== NEW ROUND ==========\r\n");
 
-        xil_printf("ROW1: %d ROW2: %d ROW3: %d ROW4: %d\r\n",
-            (input >> 7) & 1,
-            (input >> 6) & 1,
-            (input >> 5) & 1,
-            (input >> 4) & 1);
+        // Player 1: PC Terminal
+        xil_printf("\r\nPC Player - Enter your move (1-3): ");
 
-        for (volatile int d = 0; d < 1000000; d++);
+        player1 = GetUARTMove(&uart);
+
+        // Player 2: Keypad
+        xil_printf("\r\nFPGA Player - Enter your move "
+                   "using the keypad (1-3): ");
+
+        player2 = GetKeypadMove(&myDevice);
+
+        xil_printf("%d\r\n", player2);
+
+        // determine winner
+        DetermineWinner(player1, player2);
     }
+
 
     return 0;
 }
